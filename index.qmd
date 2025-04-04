@@ -1,0 +1,13 @@
+---
+title: "Jiayi He"
+image: "images/profile_pic.jpg"
+about:
+  template: jolla
+  links:
+    - icon: envelope
+      href: mailto:jih160@ucsd.edu
+    - icon: linkedin
+      href: https://www.linkedin.com/in/jiayi-he-126029288/
+---
+
+Here is the summary of me!
