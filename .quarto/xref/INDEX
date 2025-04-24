@@ -7,5 +7,11 @@
   },
   "blog.qmd": {
     "blog.html": "10338685"
+  },
+  "blog/blog.qmd": {
+    "blog.html": "68ab28ae"
+  },
+  "blog/hw1.qmd": {
+    "hw1.html": "50c0e84d"
   }
 }
