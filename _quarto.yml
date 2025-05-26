@@ -16,6 +16,8 @@ website:
             text: hw1
           - href: blog/hw2.qmd
             text: hw2
+          - href: blog/hw3.qmd
+            text: hw3
 format:
   html:
     theme: cosmo
