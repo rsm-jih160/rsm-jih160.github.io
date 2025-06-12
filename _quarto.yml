@@ -18,6 +18,8 @@ website:
             text: hw2
           - href: blog/hw3.qmd
             text: hw3
+          - href: blog/hw4.qmd
+            text: hw4
 format:
   html:
     theme: cosmo

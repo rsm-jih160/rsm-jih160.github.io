@@ -1,0 +1,161 @@
+---
+title: "Unsupervised and Supervised ML Analysis"
+author: "Jiayi He"
+date: 06/11/2025
+---
+
+## 1a. K-Means
+```{r setup, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)        
+library(palmerpenguins)
+library(factoextra)
+library(class)
+```
+
+
+```{r}
+# load dataset
+# Remove missing values from penguins
+penguins_clean <- na.omit(penguins[, c("bill_length_mm", "flipper_length_mm")])
+
+
+# Select only the columns needed for clustering
+penguins_clust <- penguins_clean %>%
+  dplyr::select(bill_length_mm, flipper_length_mm)
+
+
+# we standardized the data
+penguins_scaled <- scale(penguins_clust)
+
+# k-means
+set.seed(42)
+kmeans_model <- kmeans(penguins_scaled, centers = 3, nstart = 25)
+
+penguins_clean$cluster <- as.factor(kmeans_model$cluster)
+
+ggplot(penguins_clean, aes(x = bill_length_mm, y = flipper_length_mm, color = cluster)) +
+  geom_point(size = 2) +
+  labs(title = "K-Means Clustering (k = 3)",
+       x = "Bill Length (mm)", y = "Flipper Length (mm)") +
+  theme_minimal()
+```
+The scatterplot above shows the results of applying K-Means clustering (with k = 3) to the Palmer Penguins dataset, using **bill length** and **flipper length** as input features.
+
+The algorithm successfully identified three distinct clusters:
+
+- **Cluster 1** (red) corresponds to penguins with **longer bills and flippers**, likely representing a larger species.
+- **Cluster 2** (green) consists of penguins with **medium bill length but shorter flippers**, suggesting a different size grouping.
+- **Cluster 3** (blue) includes penguins with both **shorter bills and flippers**, possibly indicating the smallest species.
+
+These groupings appear to reflect natural biological differences, potentially aligning with species categories such as **Adelie**, **Gentoo**, or **Chinstrap** (though we did not use species labels in training).
+
+This result demonstrates how unsupervised learning can uncover hidden structure in the data without using any labels. The separation is especially clear due to the natural clustering tendencies of the penguins along these two physical traits.
+
+
+```{r}
+fviz_nbclust(penguins_scaled, kmeans, method = "wss") +
+  ggtitle("Elbow Method: Optimal Number of Clusters")
+
+fviz_nbclust(penguins_scaled, kmeans, method = "silhouette") +
+  ggtitle("Silhouette Method: Optimal Number of Clusters")
+```
+Based on the **Elbow Method**, the total within-cluster sum of squares drops sharply between **k = 1** and **k = 3**, and then flattens out. This suggests that **k = 3** is a reasonable choice, as adding more clusters after that provides diminishing returns in terms of compactness.
+
+The **Silhouette Method** shows the highest average silhouette width at **k = 2**, indicating very clean separation into two groups. However, the score at **k = 3** is also quite high and reasonably stable.
+
+Considering both metrics, we conclude that **k = 3** provides a good tradeoff between separation and interpretability. It reflects three meaningful groupings in the penguin dataset based on bill and flipper size.
+
+
+
+
+## 2a. K Nearest Neighbors
+
+```{r}
+# gen data -----
+set.seed(42)
+n <- 100
+x1 <- runif(n, -3, 3)
+x2 <- runif(n, -3, 3)
+x <- cbind(x1, x2)
+
+# define a wiggly boundary
+boundary <- sin(4*x1) + x1
+y <- ifelse(x2 > boundary, 1, 0) |> as.factor()
+dat <- data.frame(x1 = x1, x2 = x2, y = y)
+```
+
+
+```{r}
+ggplot(dat, aes(x = x1, y = x2, color = y)) +
+  geom_point(alpha = 0.6) +
+  stat_function(fun = function(x) sin(4 * x) + x, color = "black", linetype = "dashed") +
+  theme_minimal() +
+  labs(title = "Training Data with Wiggly Boundary", x = "x1", y = "x2")
+```
+This plot shows a synthetic dataset used for K-Nearest Neighbors (KNN) classification. Each point represents an observation with two features, x1 (horizontal axis) and x2 (vertical axis). The points are colored by their class label y: blue for class 1 and red for class 0. The black dashed curve represents the true decision boundary defined by the function sin(4 * x1) + x1. Points above the curve are labeled as class 1, and those below it are labeled as class 0. This setup creates a non-linear boundary, making it a good example for testing how well KNN can classify data with complex patterns.
+
+```{r}
+set.seed(999)
+n_test <- 100
+x1_test <- runif(n_test, -3, 3)
+x2_test <- runif(n_test, -3, 3)
+boundary_test <- sin(4 * x1_test) + x1_test
+y_test <- ifelse(x2_test > boundary_test, 1, 0) |> as.factor()
+
+test <- data.frame(x1 = x1_test, x2 = x2_test, y = y_test)
+```
+
+
+```{r}
+# manual 
+predict_knn <- function(train, test, k) {
+  preds <- sapply(1:nrow(test), function(i) {
+    distances <- sqrt((train$x1 - test$x1[i])^2 + (train$x2 - test$x2[i])^2)
+    nn_idx <- order(distances)[1:k]
+    pred_class <- names(sort(table(train$y[nn_idx]), decreasing = TRUE))[1]
+    return(pred_class)
+  })
+  return(factor(preds, levels = levels(train$y)))
+}
+
+# predict and compariosn
+preds_manual <- predict_knn(dat, test, k = 5)
+
+# 
+library(class)
+preds_builtin <- knn(train = dat[, 1:2], test = test[, 1:2], cl = dat$y, k = 5)
+
+
+cat("hand.:", mean(preds_manual == test$y), "\n")
+cat("knn:", mean(preds_builtin == test$y), "\n")
+
+
+```
+we compares a custom implementation of the K-Nearest Neighbors (KNN) algorithm with the built-in knn() function from R’s class package. It predicts the class labels for a test dataset using both methods with k = 5. The output shows that both methods achieved the same accuracy of 83%, meaning 83 out of 100 test points were correctly classified. This indicates that your hand-coded KNN function works correctly and gives results consistent with the standard implementation.
+
+
+```{r}
+# Accuracy for each k
+accuracy_vec <- numeric(30)
+for (k in 1:30) {
+  preds_k <- predict_knn(dat, test, k)
+  accuracy_vec[k] <- mean(preds_k == test$y)
+}
+
+plot(1:30, accuracy_vec, type = "b", pch = 19,
+     xlab = "k", ylab = "Accuracy", main = "KNN Accuracy vs k")
+
+# Find optimal k
+optimal_k <- which.max(accuracy_vec)
+optimal_acc <- accuracy_vec[optimal_k]
+
+cat("Optimal k:", optimal_k, "with accuracy:", round(optimal_acc, 3), "\n")
+
+```
+After running the KNN classifier for values of k from 1 through 30, we recorded the classification accuracy on the test dataset for each value. The resulting plot shows how accuracy changes with different k values. The x-axis represents the number of neighbors (k), and the y-axis shows the corresponding percentage of correctly classified test points.
+
+From the plot, we observe that the highest accuracy is achieved when k = 1, with an accuracy of 0.88. This suggests that the optimal number of neighbors for this dataset is k = 1, as it gives the best performance in terms of prediction accuracy.
+
+
+
